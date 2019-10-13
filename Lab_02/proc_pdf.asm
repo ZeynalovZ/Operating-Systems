@@ -13,11 +13,8 @@ data segment use16
 
 
 gdt_null descr <0,0,0,0,0,0>
-
 gdt_data descr <data_size-1,0,0,92h, 0, 0>
-
 gdt_code descr <code_size-1,0,0,98h,0,0>
-
 gdt_stack descr <255,0,0,92h, 0,0>
 gdt_screen descr <4095,8000h,0Bh,92h,0,0>
 
@@ -27,6 +24,7 @@ pdescr dq 0
 sym db 1
 attr1 db 4Fh
 attr2 db 2Fh
+s      db ?
 mes_protected_mode		db ' in protected mode '
 mes_real_mode			db ' in real mode '
 mes_real_mode_back			db ' back to real mode '
@@ -80,6 +78,11 @@ screen1:
 	stosw
 	loop screen1
 	
+	mov al, 0D1h
+	out 64h, al
+	mov al, 0dfh
+	out 60h, al
+	
 	cli
 	mov al, 80h
 	out 70h, al
@@ -112,6 +115,46 @@ screen2:
 	stosw
 	loop screen2
 	
+mem:
+	mov	ebx, 100001h
+	mov EAX, 10101010b	  
+	mov ECX, 0FFEFFFFEh
+	mov EDI, 1
+
+check_mem:
+	mov ECX, GS:[EBX]
+	mov GS:[EBX], EAX ; запись сигнатуры
+	mov EDX, GS:[EBX]
+	cmp EDX, EAX ; сравнение сигнатуры
+	jne end_mem
+	mov GS:[EBX], ECX
+	inc EBX
+	inc EDI
+	jmp check_mem
+			
+	
+end_mem:
+	xor EDX, EDX
+	mov EAX, EDI
+	mov BX, 370
+	mov ECX, 10
+	
+divide:	
+	div ECX
+	add DX, '0'
+	mov s, DL
+	mov DX, word ptr s
+	mov ES:[BX], DX
+	sub BX, 2
+	mov EDX, 0
+	cmp EAX, 0
+	jnz divide
+	
+	mov al, 0d1h
+	out 64h, al
+	mov al, 0ddh
+	out 60h, al	
+
 	mov gdt_data.limit, 0FFFFh
 	mov gdt_code.limit, 0FFFFh
 	mov gdt_stack.limit,0FFFFh
